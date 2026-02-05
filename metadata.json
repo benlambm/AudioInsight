@@ -1,0 +1,5 @@
+{
+  "name": "AudioInsight - Gemini 3 Analyzer",
+  "description": "Intelligent audio analysis using Gemini 3 native multimodal capabilities to generate TL;DRs, semantic summaries, and topic extraction from uploaded audio files.",
+  "requestFramePermissions": []
+}
