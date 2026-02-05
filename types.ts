@@ -1,4 +1,5 @@
 export interface AudioAnalysis {
+  audioDescription: string;
   tldr: string;
   summary: string;
   topics: string[];
@@ -14,4 +15,13 @@ export enum AnalysisStatus {
   PROCESSING = 'PROCESSING',
   COMPLETED = 'COMPLETED',
   ERROR = 'ERROR',
+}
+
+export interface AnalysisJob {
+  id: string;
+  file: File;
+  status: AnalysisStatus;
+  analysis: AudioAnalysis | null;
+  errorMsg: string | null;
+  savedPath: string | null;
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AudioAnalysis } from '../types';
-import { FileText, Mic, BarChart2, CheckCircle, Quote, MessageSquareQuote } from 'lucide-react';
+import { FileText, Mic, BarChart2, CheckCircle, Quote, MessageSquareQuote, Headphones } from 'lucide-react';
 
 interface AnalysisResultProps {
   data: AudioAnalysis;
@@ -23,8 +23,19 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data }) => {
         </div>
       </div>
 
+      {/* Audio Description */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-slate-600 transition-colors">
+        <div className="flex items-center gap-2 mb-4">
+          <Headphones className="text-cyan-400" size={20} />
+          <h3 className="text-lg font-semibold text-slate-100">Audio Description</h3>
+        </div>
+        <p className="text-slate-300 leading-7 whitespace-pre-wrap">
+          {data.audioDescription}
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+
         {/* Main Summary - Spans 2 cols */}
         <div className="md:col-span-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-slate-600 transition-colors">
           <div className="flex items-center gap-2 mb-4">

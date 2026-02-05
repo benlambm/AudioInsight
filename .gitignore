@@ -10,7 +10,32 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# Environment variables
 *.local
+.env
+.env.*
+
+# Audio files
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.aac
+*.m4a
+*.wma
+*.aiff
+*.opus
+*.webm
+
+# Analysis results / transcriptions
+output/
+*.analysis.json
+*_analysis.json
+analysis_*.json
+transcription*.json
+results/
+analysis/
 
 # Editor directories and files
 .vscode/*

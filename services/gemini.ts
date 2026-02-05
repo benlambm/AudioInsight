@@ -73,18 +73,22 @@ const uploadFileToGemini = async (file: File): Promise<{ fileData: { fileUri: st
 const analysisSchema: Schema = {
   type: Type.OBJECT,
   properties: {
+    audioDescription: {
+      type: Type.STRING,
+      description: "A factual description of what is heard in the audio: background noises, music, static, silence, speech clarity, number of voices, language, and overall audio quality. This must be based only on what is actually audible.",
+    },
     tldr: {
       type: Type.STRING,
-      description: "A one-sentence 'Too Long; Didn't Read' summary of the audio.",
+      description: "A one-sentence 'Too Long; Didn't Read' summary of the audio. If speech is not clearly audible, say so honestly.",
     },
     summary: {
       type: Type.STRING,
-      description: "A detailed semantic summary of the content discussed in the audio.",
+      description: "A detailed semantic summary of the content discussed in the audio. Only summarize what is actually said — do not infer or fabricate content.",
     },
     topics: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "A list of 3-5 main topics or themes found in the audio.",
+      description: "A list of 3-5 main topics or themes found in the audio. Return an empty array if no clear topics are discernible.",
     },
     sentiment: {
       type: Type.STRING,
@@ -93,20 +97,20 @@ const analysisSchema: Schema = {
     },
     speakerCountEstimate: {
       type: Type.STRING,
-      description: "An estimated count or description of speakers (e.g., '2 speakers', 'Single monologue').",
+      description: "An estimated count or description of speakers (e.g., '2 speakers', 'Single monologue'). Say 'Unknown' or 'No audible speech' if unclear.",
     },
     keyTakeaways: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "A list of actionable insights or key points.",
+      description: "A list of actionable insights or key points. Return an empty array if none can be reliably identified.",
     },
     memorableQuotes: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "A list of at least five memorable, verbatim quotes from the audio.",
+      description: "A list of memorable, verbatim quotes from the audio. Only include quotes you are confident were actually spoken. Return an empty array if speech is not clearly audible.",
     },
   },
-  required: ["tldr", "summary", "topics", "sentiment", "speakerCountEstimate", "keyTakeaways", "memorableQuotes"],
+  required: ["audioDescription", "tldr", "summary", "topics", "sentiment", "speakerCountEstimate", "keyTakeaways", "memorableQuotes"],
 };
 
 export const analyzeAudio = async (file: File): Promise<AudioAnalysis> => {
@@ -121,12 +125,25 @@ export const analyzeAudio = async (file: File): Promise<AudioAnalysis> => {
   console.log("Uploading file to Gemini...");
   const contentPart = await uploadFileToGemini(file);
 
-  const prompt = `
-    Listen to this audio file carefully. 
-    Perform a deep semantic analysis of the content.
-    Provide a structured analysis including a TL;DR, a detailed summary, key topics, sentiment, speaker estimate, key takeaways, and a list of memorable quotes.
-    Ensure the output matches the JSON schema provided.
-  `;
+  const prompt = `You are an audio analysis assistant. Your top priority is accuracy — never fabricate or hallucinate content.
+
+STEP 1 — AUDIO DESCRIPTION (do this first):
+Listen carefully and describe exactly what you hear in the audio file. Report:
+- What kinds of sounds are present (speech, music, static, silence, background noise, etc.)
+- Whether human speech is clearly audible or not
+- Audio quality (clear, muffled, distorted, noisy)
+- How many distinct voices you can identify, and in what language(s)
+
+STEP 2 — ANALYSIS (only if speech is audible):
+Based on what you actually heard, provide the structured analysis fields (TL;DR, summary, topics, sentiment, speaker estimate, key takeaways, and memorable quotes).
+
+CRITICAL RULES:
+- If the audio is mostly static, noise, music, or silence with no clear speech, say so honestly in every field. Do not invent a narrative.
+- Only include quotes you are confident were actually spoken — never paraphrase or fabricate quotes.
+- If you are uncertain about any content, explicitly say you are uncertain rather than guessing.
+- Return empty arrays for topics, keyTakeaways, and memorableQuotes if nothing can be reliably identified.
+
+Ensure the output matches the JSON schema provided.`;
 
   try {
     console.log("Sending generateContent request...");
@@ -138,7 +155,7 @@ export const analyzeAudio = async (file: File): Promise<AudioAnalysis> => {
       config: {
         responseMimeType: "application/json",
         responseSchema: analysisSchema,
-        thinkingConfig: { thinkingBudget: 1024 },
+        thinkingConfig: { thinkingBudget: 8192 },
       },
     });
 
