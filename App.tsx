@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { JobCard } from './components/JobCard';
-import { analyzeAudio } from './services/gemini';
+import { processAudio } from './services/gemini';
 import { AnalysisJob, AnalysisStatus } from './types';
 import { Sparkles, Plus } from 'lucide-react';
 
@@ -17,7 +17,7 @@ const App: React.FC = () => {
 
   const runAnalysis = useCallback(async (job: AnalysisJob) => {
     try {
-      const result = await analyzeAudio(job.file);
+      const { analysis, transcription } = await processAudio(job.file);
 
       // Save to local output folder
       let savedPath: string | null = null;
@@ -25,7 +25,7 @@ const App: React.FC = () => {
         const res = await fetch('/api/save-analysis', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ analysis: result, fileName: job.file.name }),
+          body: JSON.stringify({ analysis, transcription, fileName: job.file.name }),
         });
         const data = await res.json();
         savedPath = data.path;
@@ -35,7 +35,7 @@ const App: React.FC = () => {
 
       updateJob(job.id, {
         status: AnalysisStatus.COMPLETED,
-        analysis: result,
+        analysis,
         savedPath,
       });
     } catch (err: any) {

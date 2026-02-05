@@ -20,7 +20,7 @@ function localSavePlugin(): Plugin {
         req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
         req.on('end', () => {
           try {
-            const { analysis, fileName } = JSON.parse(body);
+            const { analysis, transcription, fileName } = JSON.parse(body);
             const now = new Date();
             const pad = (n: number) => String(n).padStart(2, '0');
             const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
@@ -29,6 +29,9 @@ function localSavePlugin(): Plugin {
 
             fs.mkdirSync(runDir, { recursive: true });
             fs.writeFileSync(path.join(runDir, 'analysis.json'), JSON.stringify(analysis, null, 2));
+            if (transcription) {
+              fs.writeFileSync(path.join(runDir, 'transcription.txt'), transcription);
+            }
 
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ path: runDir }));

@@ -113,18 +113,9 @@ const analysisSchema: Schema = {
   required: ["audioDescription", "tldr", "summary", "topics", "sentiment", "speakerCountEstimate", "keyTakeaways", "memorableQuotes"],
 };
 
-export const analyzeAudio = async (file: File): Promise<AudioAnalysis> => {
-  if (!API_KEY) {
-    throw new Error("API Key is missing. Please set process.env.API_KEY.");
-  }
+const MODEL = "gemini-3-pro-preview";
 
-  // Gemini 3 Pro Preview is excellent for multimodal reasoning
-  const model = "gemini-3-pro-preview"; 
-
-  // Always use the File API upload strategy now
-  console.log("Uploading file to Gemini...");
-  const contentPart = await uploadFileToGemini(file);
-
+const runAnalysisCall = async (contentPart: { fileData: { fileUri: string, mimeType: string } }): Promise<AudioAnalysis> => {
   const prompt = `You are an audio analysis assistant. Your top priority is accuracy — never fabricate or hallucinate content.
 
 STEP 1 — AUDIO DESCRIPTION (do this first):
@@ -145,30 +136,74 @@ CRITICAL RULES:
 
 Ensure the output matches the JSON schema provided.`;
 
-  try {
-    console.log("Sending generateContent request...");
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: {
-        parts: [contentPart, { text: prompt }],
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: analysisSchema,
-        thinkingConfig: { thinkingBudget: 8192 },
-      },
-    });
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: {
+      parts: [contentPart, { text: prompt }],
+    },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: analysisSchema,
+      thinkingConfig: { thinkingBudget: 8192 },
+    },
+  });
 
-    const text = response.text;
-    if (!text) {
-      throw new Error("No response text received from Gemini.");
-    }
-
-    const data = JSON.parse(text) as AudioAnalysis;
-    return data;
-
-  } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    throw error;
+  const text = response.text;
+  if (!text) {
+    throw new Error("No response text received from Gemini.");
   }
+
+  return JSON.parse(text) as AudioAnalysis;
+};
+
+const runTranscriptionCall = async (contentPart: { fileData: { fileUri: string, mimeType: string } }): Promise<string> => {
+  const prompt = `Transcribe all human speech in this audio file verbatim.
+
+FORMAT RULES:
+- Identify each speaker and label them consistently (e.g., BECKY:, BEN:, SPEAKER 1:, etc.). Use real names if they are mentioned in the conversation.
+- Format as a conversation: each speaker's turn on its own line, prefixed with their name in uppercase followed by a colon.
+- Do NOT include timestamps.
+- Do NOT describe non-speech sounds (background noise, music, static, footsteps, etc.). Only transcribe spoken words.
+- If a word or phrase is inaudible, write [inaudible] in its place.
+- If no human speech is present, respond with exactly: "No audible speech detected."
+
+Example format:
+BECKY: Hello, how are you doing today?
+BEN: I'm doing well, thanks for asking.`;
+
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: {
+      parts: [contentPart, { text: prompt }],
+    },
+    config: {
+      thinkingConfig: { thinkingBudget: 4096 },
+    },
+  });
+
+  return response.text || "No transcription generated.";
+};
+
+export interface ProcessResult {
+  analysis: AudioAnalysis;
+  transcription: string;
+}
+
+export const processAudio = async (file: File): Promise<ProcessResult> => {
+  if (!API_KEY) {
+    throw new Error("API Key is missing. Please set process.env.API_KEY.");
+  }
+
+  // Upload once, use for both calls
+  console.log("Uploading file to Gemini...");
+  const contentPart = await uploadFileToGemini(file);
+
+  // Run analysis and transcription in parallel
+  console.log("Running analysis and transcription in parallel...");
+  const [analysis, transcription] = await Promise.all([
+    runAnalysisCall(contentPart),
+    runTranscriptionCall(contentPart),
+  ]);
+
+  return { analysis, transcription };
 };
